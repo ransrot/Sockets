@@ -1,0 +1,105 @@
+import socket
+import time
+import argparse
+import ipaddress
+import os
+
+class Colors:
+
+	@staticmethod
+	def red_color(color):
+		return "\033[1;31;10m" + color
+
+	@staticmethod
+	def bright_blue(color):
+		return "\033[1;34;10m" + color
+
+	@staticmethod
+	def green_color(color):
+		return "\033[1;32;10m" + color
+
+	@staticmethod
+	def white_color(color):
+		return "\033[1;37;10m" + color
+
+
+class Parser:
+	def __init__(self):
+		self.args = argparse.ArgumentParser(description="Program to test your bruteforce program")
+		self.args.add_argument("--ip", help="Ip to connect on", type=self.check_ip, required=True)
+		self.args.add_argument("--port", help="Port to connect to", type=self.check_port, required=True)
+		self.args.add_argument("--file", help="File you want to use to bruteforce", type=self.check_file, required=True)
+
+		self.args_parsed = self.args.parse_args()
+
+	def get_ip(self):
+		return self.args_parsed.ip
+
+	def get_port(self):
+		return self.args_parsed.port
+
+	def get_file(self):
+		return self.args_parsed.file
+
+	def check_port(self, port):
+		port = int(port)
+
+		if port > 65535 or port < 1023:
+			print(f"You cannot choose {str(port)} as a port.")
+			exit()
+		return port
+
+	def check_ip(self, ip):
+		if not ipaddress.ip_address(ip):
+			print(f"Invalid ip address --> {str(ip)}")
+			exit()
+		return ip
+
+	def check_file(self, file):
+		if not os.path.exists(file):
+			print(f"[-] Invalid file {file}")
+			exit()
+		return file
+
+
+class Socket(Parser):
+	def __init__(self):
+		super().__init__()
+		count = 0
+		self.ip = self.get_ip()
+		self.port = self.get_port()
+		self.file = self.get_file()
+		self.socket_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket_connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		
+		while self.socket_connection.connect_ex((self.ip, self.port)) != 0:
+			print(f"Attempts: {str(count)}")
+			time.sleep(5)
+			count += 1
+
+		self.start_bruteforce()
+
+	def check_file(self):
+		with open(self.file, "r") as f:
+			content = f.readlines()
+		content = [x.strip() for x in content]
+		return str(content)
+
+	def start_bruteforce(self):
+		print("\n[+] Connected.")
+
+		while True:
+			file_check = self.check_file()
+			file_check = file_check.encode()
+
+			self.socket_connection.send(file_check)
+			data = self.socket_connection.recv(1024)
+			
+			print(Colors.bright_blue(data.decode()))
+
+if __name__ == '__main__':
+	try:
+		Socket()
+	except ConnectionResetError:
+		print(Colors.red_color("\n[+] Connection closed."))
+		exit()
